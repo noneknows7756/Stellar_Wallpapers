@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stellar Wallpapers | Dark Gallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        
+        /* --- CSS Custom Properties for Theming --- */
+        :root {
+            /* AMOLED Dark Theme (Default) */
+            --color-bg: #000000; /* True Black */
+            --color-card-bg: #0d0d0d;
+            --color-text: #f1f5f9; /* Light text */
+            --color-text-subtle: #94a3b8; /* Slate 400 */
+            --color-primary: #06b6d4; /* Cyan 500 for AMOLED pop */
+            --color-secondary-bg: #171717; /* Darker secondary for contrast/header */
+            --shadow-color-rgb: 6, 182, 212; /* Cyan RGB for AMOLED glow (used for fallback/search) */
+            --border-color: #1a1a1a;
+        }
+
+        body.theme-light {
+            /* Futuristic Light Theme (White and Light Blue) */
+            --color-bg: #f0f8ff; /* Alice Blue */
+            --color-card-bg: #ffffff; /* White */
+            --color-text: #1e293b; /* Dark Slate */
+            --color-text-subtle: #475569; /* Slate 600 */
+            --color-primary: #3b82f6; /* Blue 500 */
+            --color-secondary-bg: #e2e8f0; /* Slate 200 for buttons/inputs */
+            --shadow-color-rgb: 59, 130, 246; /* Blue RGB for light glow */
+            --border-color: #cbd5e1; /* Slate 300 */
+        }
+        
+        /* Apply variables to core elements */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            transition: background-color 0.5s ease;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Subtle Animated Grid/Noise Pattern for Depth */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            opacity: 0.08; 
+            transition: opacity 0.5s ease;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.05),
+                rgba(255, 255, 255, 0.05) 1px,
+                transparent 1px,
+                transparent 5px
+            );
+        }
+        body.theme-light::before {
+            opacity: 0.15;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(0, 0, 0, 0.05),
+                rgba(0, 0, 0, 0.05) 1px,
+                transparent 1px,
+                transparent 5px
+            );
+        }
+
+        .header-footer-bg {
+            background-color: var(--color-secondary-bg);
+            border-color: var(--border-color);
+            /* Modern Frosted Glass Effect */
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            background-color: rgba(var(--color-secondary-bg-rgb, 23, 23, 23), 0.9); /* Fallback for blur */
+        }
+
+        /* Premium 3D Card Setup */
+        .wallpaper-card {
+            background-color: var(--color-card-bg);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5); /* Subtle default inner shadow */
+            
+            /* Enable 3D transformations */
+            transform-style: preserve-3d;
+            perspective: 1000px;
+            /* Base transition for entry/exit (slower) */
+            transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1); 
+            will-change: transform, box-shadow; /* Performance optimization */
+            position: relative;
+            overflow: hidden; /* Important to contain the ::before glow */
+        }
+
+        /* --- THEMED IMAGE GLOW (NEW) --- */
+        .wallpaper-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            /* Use the image URL set dynamically by JS */
+            background-image: var(--image-url); 
+            background-size: cover;
+            background-position: center;
+            /* Heavy blur and slight brightness boost to create a vibrant halo */
+            filter: blur(20px) brightness(1.2) saturate(1.5); 
+            opacity: 0;
+            z-index: -1;
+            transform: scale(0.9);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        
+        /* Hover Effect: Stronger lift and dynamic image glow */
+        .wallpaper-card:hover {
+            /* Keep the dynamic tilt transform here */
+            transform: translateY(-10px) scale(1.02) translateZ(15px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.8); /* Added shadow for lift effect over the glow */
+        }
+        .wallpaper-card:hover::before {
+            opacity: 0.7; /* Make the blurred image visible */
+            transform: scale(1.2); /* Scale up for an aggressive glow effect */
+        }
+
+        /* Title Glow Effect */
+        .title-glow {
+            text-shadow: 0 0 8px var(--color-primary);
+            transition: text-shadow 0.3s ease;
+        }
+
+        /* Enhanced Search Focus */
+        #search-input:focus {
+            box-shadow: 0 0 0 2px var(--color-card-bg), 0 0 10px var(--color-primary);
+            border-color: var(--color-primary) !important;
+            outline: none !important;
+        }
+
+        .lazy-img {
+            background-color: var(--color-secondary-bg); /* Placeholder background */
+            min-height: 200px;
+        }
+        
+        /* Custom scrollbar for aesthetics */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--color-secondary-bg); }
+        ::-webkit-scrollbar-thumb { background: var(--color-text-subtle); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--color-primary); }
+    </style>
+    <script>
+        // Extract RGB values for header-footer-bg opacity fallback
+        function updateHeaderFooterBgRgb() {
+            const isLight = document.body.classList.contains('theme-light');
+            const secondaryBg = isLight ? '#e2e8f0' : '#171717';
+            const hexToRgb = (hex) => {
+                const bigint = parseInt(hex.slice(1), 16);
+                const r = (bigint >> 16) & 255;
+                const g = (bigint >> 8) & 255;
+                const b = bigint & 255;
+                return `${r}, ${g}, ${b}`;
+            };
+            document.documentElement.style.setProperty('--color-secondary-bg-rgb', hexToRgb(secondaryBg));
+        }
+        document.addEventListener('DOMContentLoaded', updateHeaderFooterBgRgb);
+    </script>
+</head>
+<body class="theme-dark">
+
+    <header class="header-footer-bg sticky top-0 z-40 shadow-xl border-b p-4 md:p-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between">
+            <h1 class="title-glow text-3xl font-extrabold mb-4 md:mb-0 tracking-tight" style="color: var(--color-primary);">
+                Stellar Wallpapers
+            </h1>
+
+            <div class="flex items-center w-full md:w-3/5 lg:w-1/2 justify-end space-x-4">
+                <button
+                    id="theme-toggle"
+                    onclick="toggleTheme()"
+                    class="p-3 rounded-full transition duration-150 hover:opacity-80 focus:outline-none focus:ring-2"
+                    style="background-color: var(--color-card-bg); color: var(--color-primary); border: 1px solid var(--border-color); focus-ring-color: var(--color-primary);"
+                    aria-label="Toggle theme"
+                >
+                    <svg id="theme-icon-moon" class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.293 17.293A8 8 0 015.707 5.707L10 10l5.707 5.707a8 8 0 01-8.484 1.414z"></path></svg>
+                    <svg id="theme-icon-sun" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 11a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm-4-9a1 1 0 011 1v1a1 1 0 11-2 0V5a1 1 0 011-1zm10 5a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM7 9a3 3 0 116 0 3 3 0 01-6 0zm-5 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zm14-4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.707 5.707a1 1 0 011.414 0l.707.707a1 1 0 01-1.414 1.414l-.707-.707a1 1 0 010-1.414zm1.414 7.071a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zm10.606.707a1 1 0 010-1.414l-.707-.707a1 1 0 111.414-1.414l.707.707a1 1 0 010 1.414zM16.95 5.707a1 1 0 01-1.414 0l-.707-.707a1 1 0 011.414-1.414l.707.707a1 1 0 010 1.414z" clip-rule="evenodd"></path></svg>
+                </button>
+
+                <div class="w-full relative">
+                    <input
+                        type="text"
+                        id="search-input"
+                        placeholder="Search by name or category..."
+                        class="w-full p-3 pl-10 border rounded-lg transition duration-150"
+                        style="background-color: var(--color-card-bg); color: var(--color-text); border-color: var(--border-color); --tw-ring-color: var(--color-primary);"
+                        oninput="handleSearch(this.value)"
+                    >
+                    <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5" style="color: var(--color-text-subtle);" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+            </div>
+
+            <div id="category-filters" class="w-full mt-4 md:mt-0 flex flex-wrap justify-center md:justify-end gap-2 text-sm">
+                </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto p-4 md:p-8">
+
+        <section id="wallpaper-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            </section>
+
+        <div id="empty-state" class="text-center py-20 hidden">
+            <svg class="mx-auto h-12 w-12" style="color: var(--color-text-subtle);" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172A4 4 0 0112 20c2.21 0 4-1.79 4-4a4 4 0 01-4-4v-1a4 4 0 00-4-4M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4V3"></path></svg>
+            <h3 class="mt-2 text-lg font-medium" style="color: var(--color-text-subtle);">No Wallpapers Found</h3>
+            <p class="mt-1 text-sm" style="color: var(--color-text-subtle);">Try adjusting your search query or filters.</p>
+        </div>
+
+    </main>
+
+    <footer class="header-footer-bg sticky bottom-0 z-30 border-t p-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <span class="text-sm" id="page-info" style="color: var(--color-text-subtle);"></span>
+            <div class="flex space-x-3">
+                <button
+                    id="prev-button"
+                    onclick="changePage(-1)"
+                    class="page-button px-4 py-2 font-medium rounded-full disabled:opacity-50 transition duration-150"
+                    disabled
+                >
+                    &larr; Previous
+                </button>
+                <button
+                    id="next-button"
+                    onclick="changePage(1)"
+                    class="page-button px-4 py-2 font-medium rounded-full disabled:opacity-50 transition duration-150"
+                    disabled
+                >
+                    Next &rarr;
+                </button>
+            </div>
+        </div>
+    </footer>
+
+
+    <div id="viewer-modal" class="fixed inset-0 z-50 hidden bg-black bg-opacity-95 items-center justify-center p-4 transition-opacity duration-300 opacity-0">
+        <div class="relative w-full h-full flex flex-col items-center justify-center">
+            <button
+                onclick="closeViewer()"
+                class="absolute top-4 right-4 text-white p-3 rounded-full hover:opacity-80 transition duration-150 z-50 focus:outline-none focus:ring-4"
+                style="background-color: var(--color-secondary-bg); color: var(--color-text); focus-ring-color: var(--color-primary);"
+            >
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="max-w-full max-h-full overflow-hidden flex items-center justify-center">
+                <img id="viewer-image" src="" alt="High Resolution Wallpaper" class="max-w-full max-h-screen object-contain rounded-lg shadow-2xl">
+            </div>
+
+            <a id="viewer-download-link" href="" download="wallpaper.jpg" target="_blank" class="absolute bottom-8 px-6 py-3 font-semibold rounded-full transition duration-150 shadow-xl"
+                style="background-color: var(--color-primary); color: var(--color-card-bg); box-shadow: 0 4px 15px rgba(var(--shadow-color-rgb), 0.7);"
+            >
+                Download High-Res
+            </a>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Configuration and Data Structure ---
+        const ITEMS_PER_PAGE = 20;
+
+        /*
+         * =====================================================================
+         * 🖼️ MANUAL WALLPAPER DATA ENTRY SECTION 🖼️
+         * =====================================================================
+         */
+
+        const YOUR_WALLPAPERS_DATA = [
+            {
+                title: "Dark Nebula Portal",
+                category: "Space", 
+                size: "8.5 MB",
+                quality: "4K UHD",
+                // 💡 RELATIVE PATH EXAMPLE: Assumes image is in an 'assets/thumbnails' folder
+                lowResUrl: "./images/dark_nebula_portal.jpeg",
+                // 💡 RELATIVE PATH EXAMPLE: Assumes image is in an 'assets/full' folder
+                highResUrl: "dark_nebula_portal.jpeg",
+            },
+            {
+                title: "Futuristic Cityscape",
+                category: "Abstract",
+                size: "6.2 MB",
+                quality: "1080p",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                lowResUrl: "./images/futuristic_cityscape.jpeg",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                highResUrl: "./images/futuristic_cityscape.jpeg",
+            },
+            {
+                title: "Ocean Sunset",
+                category: "Nature",
+                size: "10.1 MB",
+                quality: "4K UHD",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                lowResUrl: "./images/ocean_sunset.jpeg",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                highResUrl: "./images/ocean_sunset.jpeg",
+            },
+            {
+                title: "Amazon Forest",
+                category: "Nature",
+                size: "10.1 MB",
+                quality: "4K UHD",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                lowResUrl: "./images/amazon_forest.jpeg",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                highResUrl: "./images/amazon_forest.jpeg",
+            },
+            //*/
+            // Add more entries here...
+            {
+                title: "ferrari_250_gto_1962_1964",
+                category: "Car",
+                size: "10.1 MB",
+                quality: "4K UHD",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                lowResUrl: "./images/ferrari_250_gto_1962_1964.jpeg",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                highResUrl: "./images/ferrari_250_gto_1962_1964.jpeg",
+            },
+            {
+                title: "sun_close_up",
+                category: "Space",
+                size: "10.1 MB",
+                quality: "4K UHD",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                lowResUrl: "./images/sun_close_up.jpeg",
+                // 💡 RELATIVE PATH EXAMPLE: You must replace this with your actual local file path!
+                highResUrl: "./images/sun_close_up.jpeg",
+            }, 
+        ];
+
+        /*
+         * =====================================================================
+         * ⚙️ CORE JAVASCRIPT LOGIC (DO NOT EDIT BELOW UNLESS YOU KNOW JS) ⚙️
+         * =====================================================================
+         */
+
+        const state = {
+            // Map the manually entered data to the structure expected by the app
+            wallpapers: YOUR_WALLPAPERS_DATA.map((w, index) => ({
+                id: index + 1, // Generate a unique ID automatically
+                ...w 
+            })),
+            currentPage: 1,
+            currentCategory: 'All',
+            searchQuery: '',
+            filteredWallpapers: []
+        };
+
+        // Generate the list of categories from your data automatically
+        const ALL_CATEGORIES = ['All', ...new Set(state.wallpapers.map(w => w.category))];
+
+        // --- DOM Elements ---
+        const body = document.body;
+        const grid = document.getElementById('wallpaper-grid');
+        const emptyState = document.getElementById('empty-state');
+        const filtersContainer = document.getElementById('category-filters');
+        const prevBtn = document.getElementById('prev-button');
+        const nextBtn = document.getElementById('next-button');
+        const pageInfoSpan = document.getElementById('page-info');
+        const viewerModal = document.getElementById('viewer-modal');
+        const viewerImage = document.getElementById('viewer-image');
+        const viewerDownloadLink = document.getElementById('viewer-download-link');
+        const iconMoon = document.getElementById('theme-icon-moon');
+        const iconSun = document.getElementById('theme-icon-sun');
+        const searchInput = document.getElementById('search-input');
+        const titleElement = document.querySelector('.title-glow');
+
+        // --- 3D Tilt Effect Logic ---
+
+        // Maximum rotation allowed
+        const MAX_TILT = 10;
+        // Sensitivity factor
+        const TILT_FACTOR = 1.2;
+
+        function handleCardMouseMove(event) {
+            const card = event.currentTarget;
+            const rect = card.getBoundingClientRect();
+
+            // Calculate mouse position relative to the center of the card (0, 0)
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+
+            // X and Y normalized to range -1 to 1 based on distance from center
+            const normalizedX = (mouseX - centerX) / (rect.width / 2);
+            const normalizedY = (mouseY - centerY) / (rect.height / 2);
+
+            // Calculate rotation angles (Y-axis tilt is controlled by X position, and vice-versa)
+            const rotateY = -normalizedX * MAX_TILT * TILT_FACTOR;
+            const rotateX = normalizedY * MAX_TILT * TILT_FACTOR;
+
+            // Apply the transform, including a slight Z-translation for an added pop effect
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.02) translateZ(15px)`;
+        }
+
+        function handleCardMouseLeave(event) {
+            const card = event.currentTarget;
+            // Reset transform smoothly
+            card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale(1) translateZ(0)`;
+        }
+
+        // --- Core Rendering and Logic ---
+
+        function filterAndPaginate() {
+            let filtered = state.wallpapers;
+
+            // 1. Filter by Category
+            if (state.currentCategory !== 'All') {
+                filtered = filtered.filter(w => w.category === state.currentCategory);
+            }
+
+            // 2. Filter by Search Query (Case-insensitive)
+            const query = state.searchQuery.toLowerCase().trim();
+            if (query) {
+                filtered = filtered.filter(w =>
+                    w.title.toLowerCase().includes(query) ||
+                    w.category.toLowerCase().includes(query)
+                );
+            }
+
+            state.filteredWallpapers = filtered;
+
+            // 3. Paginate
+            const startIndex = (state.currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const paginatedWallpapers = filtered.slice(startIndex, endIndex);
+
+            renderWallpapers(paginatedWallpapers);
+            updatePaginationControls();
+            updateEmptyState(filtered.length);
+        }
+
+        function renderWallpapers(wallpapers) {
+            grid.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+
+            wallpapers.forEach(wallpaper => {
+                const card = document.createElement('div');
+                card.className = 'wallpaper-card rounded-xl overflow-hidden shadow-lg';
+                card.setAttribute('data-highres-url', wallpaper.highResUrl);
+                
+                // --- Set the dynamic image URL for the glow effect (NEW) ---
+                card.style.setProperty('--image-url', `url(${wallpaper.lowResUrl})`);
+
+                // Add new 3D Tilt Listeners
+                card.addEventListener('mousemove', handleCardMouseMove);
+                card.addEventListener('mouseleave', handleCardMouseLeave);
+
+                // Open viewer on click
+                card.onclick = () => openViewer(wallpaper.highResUrl);
+
+                card.innerHTML = `
+                    <div class="relative w-full aspect-[4/3] lazy-img">
+                        <img
+                            data-src="${wallpaper.lowResUrl}"
+                            alt="${wallpaper.title}"
+                            class="absolute inset-0 w-full h-full object-cover opacity-0 transition-opacity duration-700"
+                            onerror="this.onerror=null; this.src='https://placehold.co/400x250/333333/ffffff?text=Image+Not+Found'"
+                            onload="this.style.opacity='1'"
+                        >
+                        <div class="absolute inset-0 flex items-center justify-center text-sm font-medium" style="color: var(--color-text-subtle);">
+                            
+                        </div>
+                    </div>
+
+                    <div class="p-4">
+                        <h3 class="text-lg font-semibold truncate" style="color: var(--color-text);">${wallpaper.title}</h3>
+                        <div class="mt-2 text-xs flex justify-between" style="color: var(--color-text-subtle);">
+                            <span class="px-2 py-0.5 rounded-full" style="background-color: var(--color-secondary-bg);">${wallpaper.category}</span>
+                            <span>${wallpaper.quality}</span>
+                            <span>${wallpaper.size}</span>
+                        </div>
+                    </div>
+                `;
+                fragment.appendChild(card);
+            });
+
+            grid.appendChild(fragment);
+
+            // Apply Intersection Observer for Lazy Loading
+            setupIntersectionObserver();
+        }
+
+        // --- Intersection Observer (Lazy Loading) ---
+        let observer;
+        function setupIntersectionObserver() {
+            if (observer) {
+                observer.disconnect();
+            }
+
+            const images = document.querySelectorAll('img[data-src]');
+            if (!images.length) return;
+
+            observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        img.src = img.getAttribute('data-src');
+                        img.removeAttribute('data-src');
+                        observer.unobserve(img);
+                    }
+                });
+            }, {
+                rootMargin: '0px',
+                threshold: 0.1
+            });
+
+            images.forEach(img => observer.observe(img));
+        }
+
+        // --- Button Styling Helper ---
+        function applyButtonStyles(button, isActive) {
+            if (isActive) {
+                button.style.backgroundColor = 'var(--color-primary)';
+                button.style.color = 'var(--color-card-bg)';
+                button.style.border = 'none';
+                button.style.boxShadow = '0 2px 5px rgba(var(--shadow-color-rgb), 0.5)';
+                button.onmouseover = null;
+                button.onmouseout = null;
+            } else {
+                button.style.backgroundColor = 'var(--color-secondary-bg)';
+                button.style.color = 'var(--color-text-subtle)';
+                button.style.border = '1px solid var(--border-color)';
+                button.style.boxShadow = 'none';
+                button.onmouseover = () => button.style.opacity = 0.8;
+                button.onmouseout = () => button.style.opacity = 1;
+            }
+        }
+
+        // --- Category Filters ---
+        function renderCategoryFilters() {
+            filtersContainer.innerHTML = '';
+            ALL_CATEGORIES.forEach(category => {
+                const isActive = state.currentCategory === category;
+                const button = document.createElement('button');
+                button.textContent = category;
+                button.className = `px-3 py-1 rounded-full text-sm font-medium transition duration-150`;
+
+                applyButtonStyles(button, isActive);
+
+                button.onclick = () => handleCategoryChange(category);
+                filtersContainer.appendChild(button);
+            });
+        }
+
+        function handleCategoryChange(category) {
+            state.currentCategory = category;
+            state.currentPage = 1;
+            searchInput.value = '';
+            state.searchQuery = '';
+            renderCategoryFilters();
+            filterAndPaginate();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function handleSearch(query) {
+            state.searchQuery = query;
+            state.currentPage = 1;
+            state.currentCategory = 'All';
+            renderCategoryFilters();
+            filterAndPaginate();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- Pagination ---
+        function updatePaginationControls() {
+            const totalItems = state.filteredWallpapers.length;
+            const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+            prevBtn.disabled = state.currentPage <= 1;
+            nextBtn.disabled = state.currentPage >= totalPages;
+
+            // Apply hover styles dynamically to pagination buttons
+            const pageButtons = document.querySelectorAll('.page-button');
+            pageButtons.forEach(button => {
+                // Pagination buttons are never 'active' like a category filter, so use false
+                applyButtonStyles(button, false);
+            });
+
+            const start = (state.currentPage - 1) * ITEMS_PER_PAGE + 1;
+            const end = Math.min(state.currentPage * ITEMS_PER_PAGE, totalItems);
+            pageInfoSpan.textContent = totalItems > 0
+                ? `Showing ${start}-${end} of ${totalItems} results`
+                : 'No results to display';
+        }
+
+        function changePage(direction) {
+            state.currentPage += direction;
+            filterAndPaginate();
+            window.scrollTo({ top: grid.offsetTop - 100, behavior: 'smooth' });
+        }
+
+        function updateEmptyState(itemCount) {
+            if (itemCount === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+        }
+
+        // --- Theme Switching Logic ---
+        function toggleTheme() {
+            if (body.classList.contains('theme-light')) {
+                body.classList.remove('theme-light');
+                body.classList.add('theme-dark');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                body.classList.remove('theme-dark');
+                body.classList.add('theme-light');
+                localStorage.setItem('theme', 'light');
+            }
+            updateThemeIcons();
+            updateHeaderFooterBgRgb(); // Update RGB helper for header blur fallback
+            renderCategoryFilters(); // Re-render categories to apply correct color styles
+            updatePaginationControls(); // Re-style pagination buttons
+        }
+
+        function updateThemeIcons() {
+            const isLight = body.classList.contains('theme-light');
+            iconMoon.classList.toggle('hidden', isLight);
+            iconSun.classList.toggle('hidden', !isLight);
+        }
+
+        function loadInitialTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+
+            if (savedTheme === 'light') {
+                body.classList.add('theme-light');
+                body.classList.remove('theme-dark');
+            } else {
+                body.classList.add('theme-dark');
+                body.classList.remove('theme-light');
+            }
+            updateThemeIcons();
+            updateHeaderFooterBgRgb(); // Initial RGB set
+        }
+
+        // --- High-Resolution Viewer ---
+        function openViewer(url) {
+            viewerImage.src = url;
+            viewerDownloadLink.href = url;
+            viewerModal.classList.remove('hidden');
+            setTimeout(() => {
+                viewerModal.classList.add('opacity-100');
+            }, 10);
+        }
+
+        function closeViewer() {
+            viewerModal.classList.remove('opacity-100');
+            setTimeout(() => {
+                viewerModal.classList.add('hidden');
+                viewerImage.src = '';
+            }, 300);
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeViewer();
+            }
+        });
+
+        // --- Initialization ---
+        function init() {
+            loadInitialTheme();
+            renderCategoryFilters();
+            filterAndPaginate();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
